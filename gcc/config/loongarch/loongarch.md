@@ -51,6 +51,8 @@
   UNSPEC_TLS_LE
   UNSPEC_TLS_IE
 
+  UNSPEC_PCADDU12I
+
   ;; Stack tie
   UNSPEC_TIE
 
@@ -181,6 +183,7 @@
 ;; mftg		move floating point register to general-purpose register
 ;; const	load constant
 ;; arith	integer arithmetic instructions
+;; pcaddi       integer addition to PC
 ;; logical      integer logical instructions
 ;; shift	integer shift instructions
 ;; slt		set less than instructions
@@ -209,7 +212,7 @@
 ;; ghost	an instruction that produces no real code
 (define_attr "type"
   "unknown,branch,jump,call,load,fpload,fpidxload,store,fpstore,fpidxstore,
-   prefetch,prefetchx,condmove,mgtf,mftg,const,arith,logical,
+   prefetch,prefetchx,condmove,mgtf,mftg,const,arith,pcaddi,logical,
    shift,slt,signext,clz,trap,imul,idiv,move,
    fmove,fadd,fmul,fmadd,fdiv,frdiv,fabs,fneg,fcmp,fcvt,fsqrt,
    frsqrt,accext,accmod,multi,atomic,syncloop,nop,ghost"
@@ -2009,6 +2012,31 @@
   ""
   "la.tls.ie\t%0,%1"
   [(set_attr "got" "load")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "@pcaddu12i<mode>"
+  [(set (match_operand:P 0 "register_operand" "=r")
+	(unspec:P
+	    [(match_operand:P 1 "symbolic_operand" "")
+		  (match_operand:P 2 "const_int_operand")
+		  (pc)]
+	    UNSPEC_PCADDU12I))]
+  ""
+  ".LA%2: pcaddu12i\t%0,%h1"
+  [(set_attr "type" "pcaddi")
+   (set_attr "mode" "<MODE>")])
+
+;; Instructions for adding the low 12 bits of an address to a register.
+;; Operand 2 is the address: riscv_print_operand works out which relocation
+;; should be applied.
+
+(define_insn "*low<mode>"
+  [(set (match_operand:P           0 "register_operand" "=r")
+	(lo_sum:P (match_operand:P 1 "register_operand" " r")
+		  (match_operand:P 2 "symbolic_operand" "")))]
+  ""
+  "addi.<d>\t%0,%1,%R2"
+  [(set_attr "type" "arith")
    (set_attr "mode" "<MODE>")])
 
 ;; Move operand 1 to the high word of operand 0 using movgr2frh.w, preserving the
